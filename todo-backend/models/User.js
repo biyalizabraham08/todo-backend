@@ -19,7 +19,12 @@ const userSchema = new mongoose.Schema({
         minlength: 6
     },
     resetToken: String,
-    resetTokenExpiry: Date
+    resetTokenExpiry: Date,
+    plan: {
+        type: String,
+        enum: ['free', 'premium'],
+        default: 'free'
+    }
 });
 
 module.exports = mongoose.model("User", userSchema);

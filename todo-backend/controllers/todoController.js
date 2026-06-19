@@ -7,6 +7,14 @@ exports.createTodo = async (req, res) => {
     if (!req.body) return res.status(400).send("Request body is missing. Check your headers.");
     
     try {
+        // Check user plan and limit
+        if (!req.user.plan || req.user.plan === 'free') {
+            const count = await Todo.countDocuments({ userId: req.user._id });
+            if (count >= 40) {
+                return res.status(403).send("Free plan limit reached (40 todos). Please upgrade to Premium.");
+            }
+        }
+
         const todo = new Todo({
             title: req.body.title,
             dueDate: req.body.dueDate || null,

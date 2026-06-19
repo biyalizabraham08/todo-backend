@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import CalendarPicker from '../components/CalendarPicker';
 import MobileBottomNav from '../components/MobileBottomNav';
+import UpgradeModal from '../components/UpgradeModal';
 import {
   FiPlus,
   FiTrash2,
@@ -21,8 +22,9 @@ import {
 } from 'react-icons/fi';
 
 const Dashboard = () => {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [todos, setTodos] = useState([]);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
@@ -78,6 +80,12 @@ const Dashboard = () => {
     if (!trimmedTitle) return;
     if (trimmedTitle.length < 3) {
       toast.error('Task title must be at least 3 characters long');
+      return;
+    }
+
+    if (user?.plan !== 'premium' && todos.length >= 40) {
+      toast.error('Free plan limit reached. Please upgrade to Premium.');
+      setIsUpgradeModalOpen(true);
       return;
     }
 
@@ -185,6 +193,9 @@ const Dashboard = () => {
   const completedTasks  = todos.filter(t => t.completed).length;
   const pendingTasks    = totalTasks - completedTasks;
   const completionRate  = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  
+  const isFreePlan = !user?.plan || user?.plan === 'free';
+  const limitReached = isFreePlan && totalTasks >= 40;
 
   // Dates that have tasks (for calendar dots)
   const todoDates = todos
@@ -276,6 +287,36 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Header section as requested */}
+      <div className="mb-8 p-6 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm">
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-4">
+          Good Morning, {user?.name ? user.name.split(' ')[0] : 'User'} 👋
+        </h1>
+        
+        {isFreePlan && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                <span>Free Plan Limit</span>
+                <span>{totalTasks} / 40 Todos Used</span>
+              </div>
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${limitReached ? 'bg-red-500' : 'bg-brand-500'}`}
+                  style={{ width: `${Math.min((totalTasks / 40) * 100, 100)}%` }}
+                ></div>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsUpgradeModalOpen(true)}
+              className="whitespace-nowrap bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-2.5 px-5 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+            >
+              Upgrade to Premium ✨
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
 
         {/* Left column */}
@@ -283,49 +324,78 @@ const Dashboard = () => {
 
           {/* Create task */}
           <div className="glass-panel rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Create New Task</h3>
-            <form onSubmit={handleAddTodo} className="space-y-4">
-              <input
-                type="text"
-                ref={newTodoInputRef}
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="What needs to be done?"
-                className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white transition-all duration-200 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]"
-              />
+            {limitReached ? (
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FiX className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">You've reached the Free Plan limit (40 todos).</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Upgrade to Premium for:</p>
+                <ul className="text-left max-w-xs mx-auto space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
+                    <FiCheckCircle className="text-green-500" /> Unlimited Todos
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
+                    <FiCheckCircle className="text-green-500" /> Priority Support
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
+                    <FiCheckCircle className="text-green-500" /> Future Premium Features
+                  </li>
+                </ul>
+                <button
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-brand-500 hover:from-blue-700 hover:to-brand-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md"
+                >
+                  Upgrade Now
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Create New Task</h3>
+                <form onSubmit={handleAddTodo} className="space-y-4">
+                  <input
+                    type="text"
+                    ref={newTodoInputRef}
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="What needs to be done?"
+                    className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white transition-all duration-200 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]"
+                  />
 
-              <button
-                type="button"
-                onClick={() => setShowCalendar(v => !v)}
-                className={`flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all duration-200 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] ${
-                  dueDate
-                    ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/50'
-                    : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/80'
-                }`}
-              >
-                <FiCalendar className="h-4 w-4 shrink-0" />
-                {dueDate
-                  ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-                  : 'Set Due Date'}
-                {dueDate && (
-                  <span
-                    onClick={(e) => { e.stopPropagation(); setDueDate(null); }}
-                    className="ml-auto text-brand-400 hover:text-brand-600 cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendar(v => !v)}
+                    className={`flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all duration-200 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] ${
+                      dueDate
+                        ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/50'
+                        : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/80'
+                    }`}
                   >
-                    <FiX className="h-3.5 w-3.5" />
-                  </span>
-                )}
-              </button>
+                    <FiCalendar className="h-4 w-4 shrink-0" />
+                    {dueDate
+                      ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                      : 'Set Due Date'}
+                    {dueDate && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); setDueDate(null); }}
+                        className="ml-auto text-brand-400 hover:text-brand-600 cursor-pointer"
+                      >
+                        <FiX className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </button>
 
-              <button
-                type="submit"
-                disabled={submitting || !newTitle.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <FiPlus className="h-5 w-5" />
-                Add Task
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={submitting || !newTitle.trim()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    <FiPlus className="h-5 w-5" />
+                    Add Task
+                  </button>
+                </form>
+              </>
+            )}
           </div>
 
           {/* Calendar */}
@@ -684,6 +754,11 @@ const Dashboard = () => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
           setTimeout(() => newTodoInputRef.current?.focus(), 300);
         }} 
+      />
+
+      <UpgradeModal 
+        isOpen={isUpgradeModalOpen} 
+        onClose={() => setIsUpgradeModalOpen(false)} 
       />
     </div>
   );

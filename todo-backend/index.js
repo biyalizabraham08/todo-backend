@@ -31,6 +31,9 @@ app.use("/api/todos", todos);
 const auth = require("./routes/auth");
 app.use("/api/auth", auth);
 
+const payment = require("./routes/payment");
+app.use("/api/payment", payment);
+
 const { initCron } = require("./cron/dailySummary");
 initCron();
 
