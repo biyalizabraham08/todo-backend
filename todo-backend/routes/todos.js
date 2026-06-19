@@ -34,6 +34,6 @@ router.delete("/:id", auth, controller.deleteTodo);
 
 // Attachment routes
 router.post("/:id/attachments", auth, upload.single('attachment'), controller.uploadAttachment);
-router.delete("/:id/attachments/:filename(*)", auth, controller.deleteAttachment);
+router.delete("/:id/attachments/*filename", auth, controller.deleteAttachment);
 
 module.exports = router;

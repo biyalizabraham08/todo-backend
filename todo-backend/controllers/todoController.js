@@ -120,7 +120,12 @@ exports.deleteAttachment = async (req, res) => {
 
         if (!todo) return res.status(404).send("Todo not found.");
 
-        const attachmentIndex = todo.attachments.findIndex(a => a.filename === req.params.filename);
+        // Express 5 wildcard parses as an array of path segments
+        const requestedFilename = Array.isArray(req.params.filename) 
+            ? req.params.filename.join('/') 
+            : req.params.filename;
+
+        const attachmentIndex = todo.attachments.findIndex(a => a.filename === requestedFilename);
         
         if (attachmentIndex === -1) {
             return res.status(404).send("Attachment not found.");
@@ -135,7 +140,7 @@ exports.deleteAttachment = async (req, res) => {
              await cloudinary.uploader.destroy(attachment.publicId, { resource_type: "video" }); // Try video
         } else {
              // Fallback for old local files if any
-             const filePath = path.join(__dirname, '..', 'uploads', req.params.filename);
+             const filePath = path.join(__dirname, '..', 'uploads', requestedFilename);
              if (fs.existsSync(filePath)) {
                  fs.unlinkSync(filePath);
              }
