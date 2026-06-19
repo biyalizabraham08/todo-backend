@@ -14,6 +14,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+const path = require('path');
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 const mongoose = require("mongoose");
 
@@ -27,6 +30,9 @@ app.use("/api/todos", todos);
 
 const auth = require("./routes/auth");
 app.use("/api/auth", auth);
+
+const { initCron } = require("./cron/dailySummary");
+initCron();
 
 const port = 3001;
 

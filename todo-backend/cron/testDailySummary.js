@@ -1,0 +1,20 @@
+require("dotenv").config();
+const mongoose = require("mongoose");
+const { sendDailySummaries } = require("./dailySummary");
+
+const test = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log("Connected to MongoDB for testing.");
+
+        await sendDailySummaries();
+
+        console.log("Test finished.");
+    } catch (err) {
+        console.error("Test failed:", err);
+    } finally {
+        await mongoose.disconnect();
+    }
+};
+
+test();

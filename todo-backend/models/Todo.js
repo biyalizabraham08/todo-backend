@@ -14,6 +14,15 @@ const todoSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+    attachments: [{
+        originalName: String,
+        filename: String,
+        publicId: String,
+        path: String,
+        mimetype: String,
+        size: Number,
+        uploadedAt: { type: Date, default: Date.now }
+    }],
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

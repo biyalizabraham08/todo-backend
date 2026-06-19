@@ -1,4 +1,7 @@
 const Todo = require("../models/Todo");
+const fs = require('fs');
+const path = require('path');
+const cloudinary = require('../utils/cloudinary');
 
 exports.createTodo = async (req, res) => {
     if (!req.body) return res.status(400).send("Request body is missing. Check your headers.");
@@ -19,7 +22,6 @@ exports.createTodo = async (req, res) => {
 
 exports.getTodos = async (req, res) => {
     try {
-        console.log('getTodos called with user:', req.user);
         const todos = await Todo.find({
             userId: req.user._id
         });
@@ -78,3 +80,72 @@ exports.deleteTodo = async (req, res) => {
     }
 };
 
+exports.uploadAttachment = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).send("No file uploaded.");
+        }
+
+        const todo = await Todo.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        });
+
+        if (!todo) return res.status(404).send("Todo not found.");
+
+        const attachment = {
+            originalName: req.file.originalname,
+            filename: req.file.filename,
+            publicId: req.file.filename, // Cloudinary assigns the filename as publicId
+            path: req.file.path, // Cloudinary secure URL
+            mimetype: req.file.mimetype,
+            size: req.file.size
+        };
+
+        todo.attachments.push(attachment);
+        await todo.save();
+
+        res.send(todo);
+    } catch (error) {
+        res.status(500).send("Server Error: " + error.message);
+    }
+};
+
+exports.deleteAttachment = async (req, res) => {
+    try {
+        const todo = await Todo.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        });
+
+        if (!todo) return res.status(404).send("Todo not found.");
+
+        const attachmentIndex = todo.attachments.findIndex(a => a.filename === req.params.filename);
+        
+        if (attachmentIndex === -1) {
+            return res.status(404).send("Attachment not found.");
+        }
+
+        const attachment = todo.attachments[attachmentIndex];
+
+        // Delete from Cloudinary
+        if (attachment.publicId) {
+             await cloudinary.uploader.destroy(attachment.publicId, { resource_type: "raw" }); // Try raw first
+             await cloudinary.uploader.destroy(attachment.publicId, { resource_type: "image" }); // Try image just in case
+             await cloudinary.uploader.destroy(attachment.publicId, { resource_type: "video" }); // Try video
+        } else {
+             // Fallback for old local files if any
+             const filePath = path.join(__dirname, '..', 'uploads', req.params.filename);
+             if (fs.existsSync(filePath)) {
+                 fs.unlinkSync(filePath);
+             }
+        }
+
+        todo.attachments.splice(attachmentIndex, 1);
+        await todo.save();
+
+        res.send(todo);
+    } catch (error) {
+        res.status(500).send("Server Error: " + error.message);
+    }
+};

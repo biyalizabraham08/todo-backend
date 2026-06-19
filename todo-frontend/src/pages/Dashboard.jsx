@@ -13,6 +13,7 @@ import {
   FiX,
   FiSearch,
   FiCheckCircle,
+  FiPaperclip,
   FiList,
   FiClock,
   FiPercent,
@@ -23,7 +24,11 @@ const Dashboard = () => {
   const { token } = useContext(AuthContext);
   const [todos, setTodos] = useState([]);
   const [newTitle, setNewTitle] = useState('');
-  const [dueDate, setDueDate] = useState(null);
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'pending', 'completed'
   const [loading, setLoading] = useState(true);
@@ -33,7 +38,11 @@ const Dashboard = () => {
   const [editingDueDate, setEditingDueDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showFilterCalendar, setShowFilterCalendar] = useState(false);
-  const [filterDate, setFilterDate] = useState(null);
+  const [filterDate, setFilterDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const newTodoInputRef = useRef(null);
 
   const fetchTodos = useCallback(async () => {
@@ -80,7 +89,11 @@ const Dashboard = () => {
       });
       setTodos([response.data, ...todos]);
       setNewTitle('');
-      setDueDate(filterDate ? filterDate : null);
+      setDueDate(filterDate ? filterDate : (() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+      })());
       toast.success('Task added successfully!');
       newTodoInputRef.current?.focus();
     } catch (error) {
@@ -104,6 +117,35 @@ const Dashboard = () => {
     setEditingId(id);
     setEditingTitle(title);
     setEditingDueDate(due ? new Date(due) : null);
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (todoId, file) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('attachment', file);
+    try {
+      const response = await api.post(`/todos/${todoId}/attachments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setTodos(todos.map(todo => todo._id === todoId ? response.data : todo));
+      toast.success('File attached successfully!');
+    } catch (error) {
+      toast.error('Failed to attach file');
+    }
+  };
+
+  // Handle attachment deletion
+  const handleDeleteAttachment = async (todoId, filename) => {
+    try {
+      const response = await api.delete(`/todos/${todoId}/attachments/${filename}`);
+      setTodos(todos.map(todo => todo._id === todoId ? response.data : todo));
+      toast.success('Attachment deleted');
+    } catch (error) {
+      toast.error('Failed to delete attachment');
+    }
   };
 
   const handleUpdateTodo = async (id) => {
@@ -384,7 +426,7 @@ const Dashboard = () => {
                     <CalendarPicker
                       selectedDate={filterDate}
                       onSelect={(d) => {
-                        setFilterDate(d?.getTime() === filterDate?.getTime() ? null : d);
+                        setFilterDate(d);
                         if (d) setShowFilterCalendar(false); // Auto-collapse on selection
                       }}
                       todoDates={todoDates}
@@ -542,6 +584,31 @@ const Dashboard = () => {
                                     </span>
                                   </div>
                                 )}
+
+                                {/* Attachments List */}
+                                {todo.attachments && todo.attachments.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {todo.attachments.map(att => (
+                                      <div key={att.filename} className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-md px-2.5 py-1 transition-colors border border-slate-200 dark:border-slate-700">
+                                        <a 
+                                          href={att.path.startsWith('http') ? att.path : `http://localhost:3001${att.path}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer" 
+                                          className="text-xs text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 truncate max-w-[150px] font-medium"
+                                        >
+                                          {att.originalName}
+                                        </a>
+                                        <button 
+                                          onClick={() => handleDeleteAttachment(todo._id, att.filename)} 
+                                          className="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                          title="Delete attachment"
+                                        >
+                                          <FiX className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -566,6 +633,22 @@ const Dashboard = () => {
                                 </>
                               ) : (
                                 <>
+                                  <label 
+                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer transition-all duration-200"
+                                    title="Attach File"
+                                  >
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                          handleFileUpload(todo._id, e.target.files[0]);
+                                        }
+                                        e.target.value = ''; // Reset input so same file can be selected again
+                                      }}
+                                    />
+                                    <FiPaperclip className="h-4 w-4" />
+                                  </label>
                                   <button
                                     onClick={() => startEditing(todo._id, todo.title, todo.dueDate)}
                                     className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-200"
